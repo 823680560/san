@@ -176,7 +176,7 @@ def import_excel_to_sqlite(excel_path: str, db_path: str) -> int:
     cols_data = [tuple(row) for _, row in fts_data.iterrows()]
 
     # 多进程并行 jieba 分词
-    n_procs = min(mp.cpu_count(), 8)
+    n_procs = max(1, min(mp.cpu_count() // 2, 8))
     logging.getLogger(__name__).info(
         "FTS5 jieba 分词开始（%d 行，%d 进程）", len(cols_data), n_procs
     )
