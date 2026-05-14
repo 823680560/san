@@ -41,7 +41,7 @@ EMBEDDING_SERVICE = os.getenv("EMBEDDING_SERVICE", "huggingface")  # 可选: "ol
 EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", os.path.join(PROJECT_ROOT, "models", "bge-m3"))
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-m3")  # HF 模型 ID，本地不存在时自动下载
 EMBEDDING_NORMALIZE = True
-EMBEDDING_BATCH_SIZE = 64
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "128"))
 EMBEDDING_DIM = 1024  # bge-m3 维度
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 

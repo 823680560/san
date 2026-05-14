@@ -1,6 +1,8 @@
 import sqlite3
 import os
 import hashlib
+import logging
+import multiprocessing as mp
 import pandas as pd
 from typing import Optional, Dict
 from functools import lru_cache
@@ -89,6 +91,12 @@ def _segment_text(text) -> str:
     return " ".join(jieba.cut(str(text)))
 
 
+def _segment_row(row_values):
+    """对单行 FTS 列数据做 jieba 分词（模块级函数，供 multiprocessing 调用）"""
+    import jieba
+    return [" ".join(jieba.cut(v)) for v in row_values]
+
+
 def init_project_db(db_path: str) -> sqlite3.Connection:
     """建表 + 建 FTS5 索引"""
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -162,17 +170,26 @@ def import_excel_to_sqlite(excel_path: str, db_path: str) -> int:
     # 预加载 jieba 词典（首次调用会加载，后续加速）
     _ = len(jieba.lcut("预加载词典"))
 
+    # 提取 FTS 文本列，填充空值后转为 tuple 列表（供多进程使用）
+    fts_cols = [c for c in FTS5_TEXT_COLUMNS if c in df_sql.columns]
+    fts_data = df_sql[fts_cols].fillna("").astype(str)
+    cols_data = [tuple(row) for _, row in fts_data.iterrows()]
+
+    # 多进程并行 jieba 分词
+    n_procs = min(mp.cpu_count(), 8)
+    logging.getLogger(__name__).info(
+        "FTS5 jieba 分词开始（%d 行，%d 进程）", len(cols_data), n_procs
+    )
+    with mp.Pool(n_procs) as pool:
+        all_seg_vals = pool.map(_segment_row, cols_data, chunksize=2000)
+
+    # 写入 FTS5
     chunk_size = 500
     for chunk_start in range(0, len(df_sql), chunk_size):
         chunk_end = min(chunk_start + chunk_size, len(df_sql))
-        chunk_df = df_sql.iloc[chunk_start:chunk_end]
-        chunk_ids = id_list[chunk_start:chunk_end]
-
         rows = []
-        for idx, (_, row) in enumerate(chunk_df.iterrows()):
-            seg_vals = [_segment_text(row.get(col, "")) for col in FTS5_TEXT_COLUMNS]
-            rows.append([chunk_ids[idx]] + seg_vals)
-
+        for i in range(chunk_start, chunk_end):
+            rows.append([id_list[i]] + all_seg_vals[i])
         conn.executemany(insert_sql, rows)
         conn.commit()
 
