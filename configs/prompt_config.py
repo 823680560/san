@@ -65,9 +65,9 @@ def chunk_relevance_filter_prompt(question: str, chunks_text: str) -> str:
 
 
 def law_question_gen_prompt(truncated_text: str) -> str:
-    """为法律知识库的文本 chunk 生成自然问题"""
+    """为政策法规知识库的文本 chunk 生成自然问题"""
     return (
-        f"你是一个法律知识专家。请根据以下法律法规文本，生成一个用户可能会问的自然问题。\n\n"
+        f"你是一个环卫行业政策法规知识专家。请根据以下政策法规文本，生成一个用户可能会问的自然问题。\n\n"
         f"要求：\n"
         f"1. 问题必须基于文本中的具体信息\n"
         f'2. 问题必须自然、口语化，像真实用户会问的那样（例如："政府采购法对供应商的资格要求是什么？"）\n'
@@ -90,7 +90,7 @@ def project_question_gen_prompt(
 ) -> str:
     """为项目知识库的文本 chunk 生成自然问题"""
     return (
-        f"你是一个招投标项目专家。请根据以下项目信息，生成一个用户可能会问的自然问题。\n\n"
+        f"你是一个环卫行业招投标项目专家。请根据以下项目信息，生成一个用户可能会问的自然问题。\n\n"
         f"项目关键信息：\n"
         f"- 项目名称: {project_name}\n"
         f"- 招标单位: {title}\n"
@@ -337,7 +337,7 @@ def nl2sql_ground_truth_answer_prompt(query: str, results_text: str) -> str:
 def sql_to_question_prompt(sql: str, sample_results: str, table_ddl: str) -> str:
     """将 SQL 语句转换为自然语言问题（用于 NL2SQL 评测数据集构建）"""
     return (
-        f"你是一个招投标领域的数据分析师。请根据以下 SQL 查询语句和它的执行结果，"
+        f"你是一个环卫行业招投标项目领域的数据分析师。请根据以下 SQL 查询语句和它的执行结果，"
         f"生成一个用户可能会问的自然语言问题。\n\n"
         f"【数据库表结构】\n{table_ddl}\n\n"
         f"【SQL 查询】\n{sql}\n\n"
