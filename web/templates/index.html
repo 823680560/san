@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}首页 - 环卫行业智能问答系统{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mt-4">
+                <i class="bi bi-robot text-primary"></i> 环卫行业智能问答系统
+            </h1>
+            <p class="lead text-muted">基于 RAG 的知识库管理与智能问答系统</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- 上传文件 -->
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-upload display-3 text-primary"></i>
+                        <h5 class="card-title mt-3">上传文件</h5>
+                        <p class="card-text text-muted">
+                            支持 Excel、JSON、CSV、PDF、TXT、Word 等格式
+                        </p>
+                        <a href="/upload" class="btn btn-primary">
+                            <i class="bi bi-arrow-right"></i> 前往上传
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 向量化 -->
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-database-gear display-3 text-success"></i>
+                        <h5 class="card-title mt-3">向量化构建</h5>
+                        <p class="card-text text-muted">
+                            将上传的文件分片、向量化，构建知识库索引
+                        </p>
+                        <a href="/vectorize" class="btn btn-success">
+                            <i class="bi bi-arrow-right"></i> 前往构建
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 对话 -->
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-chat-dots display-3 text-info"></i>
+                        <h5 class="card-title mt-3">RAG 对话</h5>
+                        <p class="card-text text-muted">
+                            选择知识库，基于检索结果进行智能问答
+                        </p>
+                        <a href="/chat" class="btn btn-info text-white">
+                            <i class="bi bi-arrow-right"></i> 开始对话
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工作流程 -->
+        <div class="mt-5">
+            <h3 class="text-center mb-4">工作流程</h3>
+            <div class="steps">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">1</div>
+                    <div class="ms-3">
+                        <strong>上传文件</strong>
+                        <p class="mb-0 text-muted">将招标文件、法规文档等上传到 data/ 目录</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">2</div>
+                    <div class="ms-3">
+                        <strong>向量化构建</strong>
+                        <p class="mb-0 text-muted">选择文件进行分片、向量化，构建 FAISS 索引</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number bg-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">3</div>
+                    <div class="ms-3">
+                        <strong>智能对话</strong>
+                        <p class="mb-0 text-muted">选择知识库，输入问题，获取基于检索的精准回答</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

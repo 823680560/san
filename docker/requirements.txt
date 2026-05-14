@@ -1,0 +1,47 @@
+# Web Framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+jinja2>=3.1.0
+
+# LLM & Agent
+llama-index>=0.10.0
+llama-index-embeddings-ollama>=0.1.0
+llama-index-embeddings-huggingface>=0.1.0
+llama-index-vector-stores-faiss>=0.1.0
+llama-index-retrievers-bm25>=0.1.0
+llama-index-llms-langchain>=0.1.0
+langchain>=0.2.0
+langchain-openai>=0.1.0
+langchain-community>=0.2.0
+langchain-classic>=0.0.0
+
+# Vector Store
+faiss-cpu>=1.8.0
+
+# NL2SQL
+duckdb>=1.0.0
+vanna==0.7.9
+sqlglot>=25.0.0
+
+# BM25 Retrieval
+bm25s>=0.2.0
+
+# Data Processing
+pandas>=2.0.0
+openpyxl>=3.1.0
+numpy>=1.24.0
+jieba>=0.42.1
+PyMuPDF>=1.24.0
+python-docx>=1.1.0
+textract>=1.6.0
+
+# Utilities
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+pydantic>=2.0.0
+pyyaml>=6.0
+tqdm>=4.66.0
+torch>=2.0.0
+duckduckgo-search>=5.0.0
+sentence-transformers>=2.2.0

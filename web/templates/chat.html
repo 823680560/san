@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}RAG 对话 - 环卫行业智能问答系统{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <h2 class="mb-4"><i class="bi bi-chat-dots"></i> RAG 智能对话</h2>
+
+        <div class="row">
+            <!-- 左侧：知识库选择 -->
+            <div class="col-md-3">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-database"></i> 知识库</h5>
+                    </div>
+                    <div class="card-body">
+                        <select class="form-select mb-3" id="kbSelect" onchange="switchKnowledgeBase()">
+                            <option value="auto">自动识别 (智能路由)</option>
+                            <option value="law">法律法规库</option>
+                            <option value="project">招标项目库</option>
+                        </select>
+                        <div id="customKbs"></div>
+                        <button class="btn btn-sm btn-outline-primary w-100" onclick="refreshCustomKbs()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> 设置</h5>
+                    </div>
+                    <div class="card-body">
+                        <label class="form-label">检索数量 (top_k)</label>
+                        <input type="number" class="form-control mb-3" id="topK" value="5" min="1" max="20">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showThinking" onchange="toggleThinking()">
+                            <label class="form-check-label" for="showThinking">显示检索思考</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：对话区域 -->
+            <div class="col-md-9">
+                <div class="card shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0" id="chatTitle"><i class="bi bi-chat"></i> 对话</h5>
+                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="clearChat()">
+                            <i class="bi bi-trash"></i> 清空
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- 消息列表 -->
+                        <div id="chatMessages" class="chat-messages mb-3" style="height: 450px; overflow-y: auto;">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-chat-dots display-6"></i>
+                                <p class="mt-2">选择知识库，开始提问</p>
+                            </div>
+                        </div>
+
+                        <!-- 输入区域 -->
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="queryInput" placeholder="请输入您的问题..." 
+                                   onkeydown="if(event.key==='Enter') sendMessage()">
+                            <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()">
+                                <i class="bi bi-send"></i> 发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 每个浏览器 tab 生成唯一 session_id，用于隔离多用户/多窗口的对话历史
+const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+let lastContext = '';
+
+function toggleThinking() {
+    const visible = document.getElementById('showThinking').checked;
+    document.querySelectorAll('#chatMessages .thinking-context').forEach(el => {
+        el.classList.toggle('d-none', !visible);
+    });
+}
+
+async function refreshCustomKbs() {
+    const container = document.getElementById('customKbs');
+    try {
+        const response = await fetch('/api/knowledge-bases');
+        const data = await response.json();
+        
+        container.innerHTML = '';
+        if (data.success && data.knowledge_bases.length > 0) {
+            const select = document.getElementById('kbSelect');
+            data.knowledge_bases.forEach(kb => {
+                if (kb.name !== 'law' && kb.name !== 'project' && kb.has_index) {
+                    const option = document.createElement('option');
+                    option.value = kb.name;
+                    option.textContent = kb.name;
+                    select.appendChild(option);
+                }
+            });
+        }
+    } catch (err) {
+        console.error('刷新知识库列表失败:', err);
+    }
+}
+
+function switchKnowledgeBase() {
+    const kbName = document.getElementById('kbSelect').value;
+    const thinkingToggle = document.getElementById('showThinking');
+    if (kbName === 'auto') {
+        document.getElementById('chatTitle').innerHTML = '<i class="bi bi-chat"></i> 对话 · <span class="badge bg-info">自动识别</span>';
+        thinkingToggle.checked = true;
+    } else {
+        document.getElementById('chatTitle').innerHTML = `<i class="bi bi-chat"></i> 对话 - ${kbName}`;
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById('queryInput');
+    const query = input.value.trim();
+    if (!query) return;
+
+    const kbName = document.getElementById('kbSelect').value;
+    const topK = parseInt(document.getElementById('topK').value) || 5;
+    const messagesDiv = document.getElementById('chatMessages');
+    const sendBtn = document.getElementById('sendBtn');
+    const isAgentMode = kbName === 'auto';
+
+    // 添加用户消息
+    addMessage('user', query);
+    input.value = '';
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = isAgentMode
+        ? '<span class="spinner-border spinner-border-sm"></span> Agent 思考中...'
+        : '<span class="spinner-border spinner-border-sm"></span> 思考中...';
+
+    // 添加等待消息
+    const loadingText = isAgentMode ? 'Agent 正在思考和检索...' : '正在思考...';
+    const loadingId = addMessage('assistant', `<div class="spinner-border spinner-border-sm" role="status"></div> ${loadingText}`);
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: query,
+                kb_name: kbName,
+                top_k: topK,
+                session_id: sessionId,
+            }),
+        });
+
+        const data = await response.json();
+
+        // 移除等待消息
+        const loadingMsg = document.getElementById(loadingId);
+        if (loadingMsg) loadingMsg.remove();
+
+        if (data.success) {
+            lastContext = data.context || '';
+            const thinkingSteps = data.thinking_steps || [];
+            addMessage('assistant', data.answer, lastContext, thinkingSteps, data.agent_mode);
+        } else {
+            addMessage('assistant', `错误: ${data.detail || '请求失败'}`);
+        }
+    } catch (err) {
+        const loadingMsg = document.getElementById(loadingId);
+        if (loadingMsg) loadingMsg.remove();
+        addMessage('assistant', `请求失败: ${err.message}`);
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="bi bi-send"></i> 发送';
+    }
+}
+
+function addMessage(role, content, context, thinkingSteps, agentMode) {
+    const messagesDiv = document.getElementById('chatMessages');
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+
+    const isUser = role === 'user';
+    const avatar = isUser ? 'bi-person-circle' : 'bi-robot';
+    const bgClass = isUser ? 'bg-primary text-white' : 'bg-light';
+    const align = isUser ? 'text-end' : 'text-start';
+    const justify = isUser ? 'justify-content-end' : 'justify-content-start';
+    const toggleOn = document.getElementById('showThinking').checked;
+
+    let thinkingHtml = '';
+    if (!isUser) {
+        const hiddenClass = toggleOn ? '' : ' d-none';
+        if (agentMode && thinkingSteps && thinkingSteps.length > 0) {
+            thinkingHtml = `
+                <div class="thinking-context mt-2${hiddenClass}">
+                    <details open>
+                        <summary class="text-muted small" style="cursor: pointer;">检索思考 (Agent 调用记录)</summary>
+                        <div class="mt-1">
+                            ${thinkingSteps.map(s => `
+                                <div class="card bg-light mb-1" style="font-size: 0.75rem;">
+                                    <div class="card-body py-1 px-2">
+                                        <span class="badge bg-info me-1">步骤 ${s.step}</span>
+                                        <span class="badge bg-secondary">${escapeHtml(s.tool)}</span>
+                                        <div class="mt-1"><strong>输入:</strong> ${escapeHtml(s.tool_input)}</div>
+                                        <details>
+                                            <summary class="text-muted">查看检索结果</summary>
+                                            <pre class="mt-1 mb-0" style="white-space: pre-wrap;">${escapeHtml(s.observation_preview)}</pre>
+                                        </details>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </details>
+                </div>`;
+        } else if (context) {
+            thinkingHtml = `
+                <div class="thinking-context mt-2${hiddenClass}">
+                    <details open>
+                        <summary class="text-muted small" style="cursor: pointer;">检索思考</summary>
+                        <div class="card bg-light mt-1">
+                            <div class="card-body py-2" style="font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
+                                <pre style="white-space: pre-wrap; margin: 0;">${escapeHtml(context)}</pre>
+                            </div>
+                        </div>
+                    </details>
+                </div>`;
+        }
+    }
+
+    const div = document.createElement('div');
+    div.id = msgId;
+    div.className = `d-flex ${justify} mb-3 message-row`;
+    div.innerHTML = `
+        <div class="d-flex ${isUser ? 'flex-row-reverse' : ''}" style="max-width: 80%;">
+            <div class="flex-shrink-0">
+                <i class="bi ${avatar} fs-4 ${isUser ? 'ms-2' : 'me-2'}"></i>
+            </div>
+            <div>
+                <div class="${bgClass} rounded-3 px-3 py-2">
+                    <p class="mb-0" style="white-space: pre-wrap;">${content}</p>
+                </div>
+                ${thinkingHtml}
+            </div>
+        </div>
+    `;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    return msgId;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function clearChat() {
+    if (!confirm('确定清空对话历史吗？')) return;
+
+    const kbName = document.getElementById('kbSelect').value;
+    try {
+        await fetch('/api/chat/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kb_name: kbName, session_id: sessionId }),
+        });
+    } catch (err) {
+        console.error('清空对话历史失败:', err);
+    }
+
+    lastContext = '';
+    const messagesDiv = document.getElementById('chatMessages');
+    messagesDiv.innerHTML = `
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-chat-dots display-6"></i>
+            <p class="mt-2">选择知识库，开始提问</p>
+        </div>
+    `;
+}
+
+// 页面加载时刷新自定义知识库
+refreshCustomKbs();
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# 知识库向量数据（运行时挂载或重建）
+knowledge_base/
+
+# 数据文件（运行时挂载）
+data/
+
+# 临时文件
+*.tmp
+*.log
+
+# 评估结果
+retrieval_eval_results.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Docker
+docker/

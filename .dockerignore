@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
+venv/
+.venv/
+
+# 本地数据（不打包进镜像，运行时通过 volume 挂载）
+data/
+extract_data/
+knowledge_base/
+models/
+
+# 评估数据与报告
+eval/datasets/
+eval/reports/
+eval/EVALUATION_TECHNICAL_REPORT.md
+eval/评估*.md
+eval/knowledge_base_config.yaml
+
+# 大型生成文件
+ans_comparation*.xlsx
+
+# 本地文档
+NL2SQL优化报告.md
+操作文档.md
+todo.md
+*.md
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Git
+.git/
+.gitignore

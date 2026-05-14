@@ -1,0 +1,105 @@
+/* 环卫行业智能问答系统 - 自定义样式 */
+
+/* 上传区域拖拽效果 */
+.upload-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.upload-zone:hover {
+    border-color: #0d6efd;
+    background-color: #e9ecef;
+}
+
+.upload-zone.drag-over {
+    border-color: #0d6efd;
+    background-color: #cfe2ff;
+    transform: scale(1.02);
+}
+
+/* 对话消息样式 */
+.chat-messages {
+    scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 3px;
+}
+
+/* 卡片悬停效果 */
+.card {
+    transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 步骤编号 */
+.step-number {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* 导航栏激活状态 */
+.navbar .nav-link.active {
+    font-weight: bold;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+/* 页脚 */
+.footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* 代码块样式 */
+pre {
+    background-color: #f4f4f4;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.85rem;
+}
+
+/* 列表组悬停效果 */
+.list-group-item {
+    transition: background-color 0.2s ease;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* 按钮过渡 */
+.btn {
+    transition: all 0.2s ease;
+}
+
+/* 进度条动画 */
+.progress-bar {
+    transition: width 0.5s ease;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .chat-messages {
+        height: 350px !important;
+    }
+    
+    .upload-zone {
+        padding: 20px 10px;
+    }
+}

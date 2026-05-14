@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
+venv/
+.venv/
+
+# ====================
+# 本地数据（不上传 GitHub）
+# ====================
+data/*
+extract_data/
+knowledge_base/
+models/
+
+!data/*/.gitkeep          # 但不忽略 data/*/.gitkeep（子目录中的）
+
+# ====================
+# 评估数据与报告（只保留源码）
+# ====================
+eval/datasets/
+eval/reports/
+
+
+# ====================
+# 大型生成文件
+# ====================
+ans_comparation*.xlsx
+
+
+# ====================
+# 系统文件
+# ====================
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

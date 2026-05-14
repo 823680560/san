@@ -1,0 +1,54 @@
+services:
+  # Ollama 对话模型服务（仅本地模型方案需要，默认不启动）
+  # 使用方式：docker compose --profile ollama up -d
+  ollama:
+    image: ollama/ollama:latest
+    container_name: san-ollama
+    restart: unless-stopped
+    profiles:
+      - ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+
+  # FastAPI Web 应用
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: san-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM 配置（通过环境变量覆盖 config.py 中的默认值）
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - LLM_API_KEY=${LLM_API_KEY:-sk-xxx}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      # 嵌入模型配置
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-bge-m3}
+      - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      # HuggingFace 镜像（国内部署必设，需在 Python 启动前注入）
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+      # 评估模型配置
+      - EVAL_LLM_MODEL=${EVAL_LLM_MODEL:-deepseek-chat}
+      - EVAL_LLM_API_KEY=${EVAL_LLM_API_KEY:-sk-xxx}
+      - EVAL_LLM_BASE_URL=${EVAL_LLM_BASE_URL:-https://api.deepseek.com/v1}
+      # SQL生成模型配置
+      - SQL_ROUTER_MODEL=${SQL_ROUTER_MODEL:-deepseek-chat}
+      - SQL_ROUTER_API_KEY=${SQL_ROUTER_API_KEY:-sk-xxx}
+      - SQL_ROUTER_BASE_URL=${SQL_ROUTER_BASE_URL:-https://api.deepseek.com/v1}
+    volumes:
+      - ../data:/app/data
+      - ../knowledge_base:/app/knowledge_base
+      - ../models:/app/models
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  ollama_data:
+  hf_cache:

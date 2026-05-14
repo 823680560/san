@@ -1,0 +1,20 @@
+# ============================================================
+# 知识库评估配置文件
+# ============================================================
+
+retrieval:
+  top_k: [3, 5, 10, 20]
+
+generation:
+  compare_modes: true               # 是否启用 Agent RAG vs LLM Only 对比
+
+dataset:
+  questions_per_chunk: 1
+  test_size: 100                     # 每个知识库的评测集大小限制
+
+knowledge_bases:
+  - name: "law"
+    enabled: true
+
+  - name: "project"
+    enabled: true

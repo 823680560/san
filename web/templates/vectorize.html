@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}向量化构建 - 环卫行业智能问答系统{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <h2 class="mb-4"><i class="bi bi-database-gear"></i> 向量化构建</h2>
+
+        <!-- 选择文件 -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-earmark"></i> 选择文件</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">选择要向量化的文件</label>
+                    <select class="form-select" id="fileSelect">
+                        <option value="">-- 请先上传文件 --</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">知识库名称（可选，默认使用文件名）</label>
+                    <input type="text" class="form-control" id="kbName" placeholder="留空则使用文件名作为知识库名称">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">分片大小 (chunk_size)</label>
+                        <input type="number" class="form-control" id="chunkSize" value="500" min="100" max="2000">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">分片重叠 (chunk_overlap)</label>
+                        <input type="number" class="form-control" id="chunkOverlap" value="50" min="0" max="500">
+                    </div>
+                </div>
+                <button class="btn btn-success" id="vectorizeBtn" onclick="startVectorize()">
+                    <i class="bi bi-play-fill"></i> 开始构建
+                </button>
+            </div>
+        </div>
+
+        <!-- 构建进度 -->
+        <div id="vectorizeProgress" class="d-none mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5><i class="bi bi-hourglass-split"></i> 构建中...</h5>
+                    <div class="progress mb-2">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="vectorizeProgressBar" style="width: 100%"></div>
+                    </div>
+                    <p class="text-muted mb-0" id="vectorizeStatus">正在处理，请稍候...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 构建结果 -->
+        <div id="vectorizeResult" class="d-none mb-4"></div>
+
+        <!-- 已有知识库列表 -->
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-database"></i> 已有知识库</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshKnowledgeBases()">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="kbList">
+                    <div class="text-center text-muted py-3">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        加载中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function refreshFileList() {
+    const select = document.getElementById('fileSelect');
+    select.innerHTML = '<option value="">-- 请先上传文件 --</option>';
+
+    try {
+        const response = await fetch('/api/files');
+        const data = await response.json();
+
+        if (data.success && data.files.length > 0) {
+            select.innerHTML = '';
+            data.files.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f.name;
+                option.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
+                select.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error('加载文件列表失败:', err);
+    }
+}
+
+async function refreshKnowledgeBases() {
+    const kbListDiv = document.getElementById('kbList');
+    kbListDiv.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm" role="status"></div> 加载中...</div>';
+
+    try {
+        const response = await fetch('/api/knowledge-bases');
+        const data = await response.json();
+
+        if (!data.success || data.knowledge_bases.length === 0) {
+            kbListDiv.innerHTML = '<div class="text-center text-muted py-3">暂无知识库</div>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        data.knowledge_bases.forEach(kb => {
+            const statusIcon = kb.has_index ? 'bi-check-circle-fill text-success' : 'bi-exclamation-circle-fill text-warning';
+            const statusText = kb.has_index ? '有效' : '索引不完整';
+            html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi ${statusIcon} me-2"></i>
+                        <strong>${kb.name}</strong>
+                        <span class="badge bg-${kb.has_index ? 'success' : 'warning'} ms-2">${statusText}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteKnowledgeBase('${kb.name}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        kbListDiv.innerHTML = html;
+    } catch (err) {
+        kbListDiv.innerHTML = `<div class="alert alert-danger">加载知识库列表失败: ${err.message}</div>`;
+    }
+}
+
+async function startVectorize() {
+    const fileSelect = document.getElementById('fileSelect');
+    const kbName = document.getElementById('kbName').value.trim();
+    const chunkSize = parseInt(document.getElementById('chunkSize').value) || 500;
+    const chunkOverlap = parseInt(document.getElementById('chunkOverlap').value) || 50;
+
+    if (!fileSelect.value) {
+        alert('请先选择要向量化的文件');
+        return;
+    }
+
+    const progressDiv = document.getElementById('vectorizeProgress');
+    const resultDiv = document.getElementById('vectorizeResult');
+    const statusP = document.getElementById('vectorizeStatus');
+    const btn = document.getElementById('vectorizeBtn');
+
+    progressDiv.classList.remove('d-none');
+    resultDiv.classList.add('d-none');
+    btn.disabled = true;
+    statusP.textContent = `正在向量化 ${fileSelect.value}...`;
+
+    try {
+        const response = await fetch('/api/vectorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file_name: fileSelect.value,
+                kb_name: kbName || undefined,
+                chunk_size: chunkSize,
+                chunk_overlap: chunkOverlap,
+            }),
+        });
+
+        const data = await response.json();
+
+        progressDiv.classList.add('d-none');
+
+        if (data.success) {
+            resultDiv.classList.remove('d-none');
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle"></i> 构建成功！</h5>
+                    <p class="mb-1">知识库: <strong>${data.kb_name}</strong></p>
+                    <p class="mb-1">节点数量: <strong>${data.node_count}</strong></p>
+                    <p class="mb-0">保存路径: <code>${data.save_path}</code></p>
+                </div>
+            `;
+            refreshKnowledgeBases();
+        } else {
+            resultDiv.classList.remove('d-none');
+            resultDiv.innerHTML = `<div class="alert alert-danger">构建失败: ${data.detail || '未知错误'}</div>`;
+        }
+    } catch (err) {
+        progressDiv.classList.add('d-none');
+        resultDiv.classList.remove('d-none');
+        resultDiv.innerHTML = `<div class="alert alert-danger">构建失败: ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function deleteKnowledgeBase(kbName) {
+    if (!confirm(`确定删除知识库 "${kbName}" 吗？此操作不可恢复！`)) return;
+
+    try {
+        const response = await fetch(`/api/knowledge-bases/${encodeURIComponent(kbName)}`, {
+            method: 'DELETE',
+        });
+        const data = await response.json();
+        if (data.success) {
+            refreshKnowledgeBases();
+        } else {
+            alert('删除失败: ' + data.detail);
+        }
+    } catch (err) {
+        alert('删除失败: ' + err.message);
+    }
+}
+
+// 页面加载时刷新文件列表和知识库列表
+refreshFileList();
+refreshKnowledgeBases();
+</script>
+{% endblock %}
