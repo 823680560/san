@@ -184,6 +184,34 @@ SQLITE_TRAINING_PAIRS = [
      'SELECT * FROM sanitation_projects WHERE "年限_年" IS NOT NULL ORDER BY "年限_年" DESC LIMIT 10'),
     ("合同金额最高的前10个项目是哪些",
      'SELECT * FROM sanitation_projects WHERE "合同金额_元" IS NOT NULL ORDER BY "合同金额_元" DESC LIMIT 10'),
+
+    # ======== 是否PPP 模式值查询 ========
+    ("有哪些采用OM模式的环卫项目",
+     'SELECT * FROM sanitation_projects WHERE "是否PPP" = \'OM\' LIMIT 20'),
+    ("EPCO模式的项目有哪些",
+     'SELECT * FROM sanitation_projects WHERE "是否PPP" = \'EPCO\' LIMIT 20'),
+    ("有哪些采用TOT模式的PPP项目",
+     'SELECT * FROM sanitation_projects WHERE "是否PPP" = \'TOT\' LIMIT 20'),
+    ("EPC项目有哪些",
+     'SELECT * FROM sanitation_projects WHERE "是否PPP" = \'EPC\' LIMIT 20'),
+    ("有哪些采用BOT模式的特许经营项目",
+     'SELECT * FROM sanitation_projects WHERE "是否PPP" = \'BOT\' LIMIT 20'),
+
+    # ======== 直接列查询（不用 FTS5） ========
+    ("三门峡市有哪些环卫项目",
+     'SELECT * FROM sanitation_projects WHERE "城市" = \'三门峡市\' LIMIT 20'),
+    ("项目状态为预审结果的项目有哪些",
+     'SELECT * FROM sanitation_projects WHERE "项目状态" = \'预审结果\' LIMIT 20'),
+
+    # ======== 采购主体精确值 ========
+    ("企业采购的环卫项目有哪些",
+     'SELECT * FROM sanitation_projects WHERE "采购主体" = \'企业采购\' LIMIT 20'),
+
+    # ======== 城市名完整格式 ========
+    ("广东省东莞市有哪些环卫项目",
+     'SELECT * FROM sanitation_projects WHERE "省份" = \'广东\' AND "城市" = \'东莞市\' LIMIT 20'),
+    ("山东省东营市的环卫服务项目有哪些",
+     'SELECT * FROM sanitation_projects WHERE "省份" = \'山东\' AND "城市" = \'东营市\' LIMIT 20'),
 ]
 
 DUCKDB_TRAINING_PAIRS = [
@@ -235,7 +263,7 @@ def _train_sqlite_vanna(vanna, sqlite_conn):
     vanna.train(documentation="中标时间格式为 YYYY-MM-DD HH:MM:SS，可用 >=、<=、BETWEEN 筛选，数据范围 2015~2024 年")
     vanna.train(documentation="预计合同到期时间格式为 YYYY-MM-DD HH:MM:SS")
     vanna.train(documentation="项目状态常见值: '招标公告'、'中标公告'、'进行中'、'资格预审'、'废标公告'、'政府采购'、'招标预告'、'更正公告'、'项目前期'、'预审结果'")
-    vanna.train(documentation="项目类型常见值: '垃圾分类'、'垃圾收运'、'垃圾处理'、'道路清扫'、'水域保洁'、'公厕保洁'、'公园管养'、'BOT'、'绿化'、'物业'、'转运'")
+    vanna.train(documentation="项目类型常见值: '环卫服务'、'垃圾收运'、'垃圾分类'、'水域保洁'、'公厕管养'、'垃圾处理'、'道路清扫'、'公园管养'、'绿化'、'物业'、'转运'、'餐厨垃圾'、'市容管理'、'建筑垃圾'、'智慧环卫'。注意：项目类型字段不包含运作模式（BOT/EPC/TOT 等在是否PPP字段）")
     vanna.train(documentation="省份字段存完整的省份名称如 '上海'、'广东'、'浙江'，不加'省'字。城市字段存城市名称如 '保定市'、'深圳市'，不带前导空格")
     vanna.train(documentation="大区字段值: '华东'、'华南'、'华北'、'华中'、'西南'、'西北'、'东北'")
     vanna.train(documentation="FTS5 模糊搜索语法：WHERE sanitation_projects_fts MATCH '关键词'（注意：WHERE 中必须使用 FTS 表全名 sanitation_projects_fts，严禁使用别名 fts，不能出现WHERE fts MATCH的情况；别名fts只能在 JOIN 中使用）")
@@ -269,6 +297,22 @@ def _train_sqlite_vanna(vanna, sqlite_conn):
         "不要为了指定列就改用非 FTS 查询。"
     ))
     vanna.train(documentation=(
+        "【CRITICAL】FTS5 使用边界——什么时候不用 FTS5：\n"
+        "以下情况使用直接列查询（WHERE \"列名\" = '值'），不要使用 FTS5 MATCH：\n"
+        "1. 用户只问某个省份/城市/区县的项目 → 直接查省份/城市/区县列\n"
+        "   例：'浙江有哪些项目' → WHERE \"省份\" = '浙江'\n"
+        "   例：'三门峡市有哪些项目' → WHERE \"城市\" = '三门峡市'\n"
+        "2. 用户只问某个项目状态 → 直接查项目状态列\n"
+        "   例：'预审结果的项目有哪些' → WHERE \"项目状态\" = '预审结果'\n"
+        "3. 用户只问某个采购主体/大区 → 直接查对应列\n"
+        "   例：'政府采购的项目' → WHERE \"采购主体\" = '政府采购'\n\n"
+        "以下情况使用 FTS5 MATCH：\n"
+        "1. 用户搜索项目名称/公司名中的关键词 → FTS5\n"
+        "   例：'项目名称中包含道路的项目' → FTS5 MATCH '道路*'\n"
+        "2. 用户用'包含'、'关键词'、'搜索'等明确字眼 → FTS5\n"
+        "3. 查询公司名（中标公司列已在FTS5索引中） → FTS5"
+    ))
+    vanna.train(documentation=(
         "【CRITICAL】列名引用规则：所有中文列名必须用双引号括起来，例如：\n"
         "SELECT * FROM sanitation_projects WHERE \"中标时间\" >= '2018-08-04' ORDER BY \"中标时间\"\n"
         "SELECT * FROM sanitation_projects WHERE \"城市\" = '保定市'\n"
@@ -283,13 +327,47 @@ def _train_sqlite_vanna(vanna, sqlite_conn):
         "- 中文'超过'/'大于'应使用 > 而非 >=。"
     ))
     vanna.train(documentation=(
+        "【CRITICAL】筛选条件精确匹配规则：\n"
+        "只添加用户问题中明确提到的筛选条件，禁止自行推断或添加额外条件。\n"
+        "❌ 错误：用户问'三亚市有哪些项目' → 不能加 \"项目状态\" = '招标公告'\n"
+        "❌ 错误：用户问'XX公司的中标项目' → 不能自行加省份/城市限制\n"
+        "❌ 错误：用户问'天津地区园区管理相关项目' → 不能加 \"项目状态\" = '招标公告'\n"
+        "✅ 正确：用户问'三亚市有哪些招标项目' → 只加 \"城市\" = '三亚市'（'招标项目'是环卫项目的泛称，不是项目状态值）\n"
+        "✅ 正确：用户问'三亚市有哪些招标公告的项目' → 加 \"城市\" = '三亚市' AND \"项目状态\" = '招标公告'\n"
+        "关键词'招标项目'≠'招标公告'，除非用户明确说'招标公告'否则不要加项目状态筛选。"
+    ))
+    vanna.train(documentation="采购主体常见值: '政府采购'、'企业采购'、空。注意是'企业采购'不是'企业'，是'政府采购'不是'政府'")
+    vanna.train(documentation="城市字段多数带'市'后缀（如'东莞市'、'深圳市'），少数不带（如'大理州'、'凉山'）。查询城市时尽量匹配数据中的完整格式。")
+    vanna.train(documentation=(
     "【具体项目名称查询】\n"
     "当用户提到具体的项目名称时（如'园岭街道保湿保洁项目'），也使用 FTS5 MATCH 进行查询：\n"
     "SELECT sp.* FROM sanitation_projects_fts fts JOIN sanitation_projects sp ON fts.rowid = sp.id "
     "WHERE sanitation_projects_fts MATCH '园岭 街道 保湿 保洁' LIMIT 10\n"
     "将项目名称中的关键词用空格分隔进行匹配。"
     ))
-    vanna.train(documentation="是否PPP字段：值为'是'或'否'或空，查询非PPP项目时需同时判断 IS NULL、空字符串和'否'三种情况")
+    vanna.train(documentation=(
+        "【CRITICAL】是否PPP 字段说明：\n"
+        "是否PPP 字段存储项目运作模式，包含以下值：\n"
+        "- 否/空：非 PPP/BOT 等模式项目（最多）\n"
+        "- PPP, BOT, BOOT, BOO：PPP/BOT 相关模式\n"
+        "- EPC, EPCO, EPC+O：EPC 相关模式\n"
+        "- TOT, ROT, OM, ABO：其他运作模式\n"
+        "- 准BOT：准 BOT 模式\n\n"
+        "【强制规则】用户提到的任何运作模式名称必须查是否PPP字段，严禁查项目类型：\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'BOT'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'EPC'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'EPCO'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'TOT'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'OM'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'BOOT'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'BOO'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'ROT'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'ABO'\n"
+        "✅ 正确：WHERE \"是否PPP\" = 'PPP'\n"
+        "❌ 错误：WHERE \"项目类型\" = 'BOT'\n"
+        "❌ 错误：WHERE \"项目类型\" = 'EPC'\n"
+        "查询非PPP项目：WHERE \"是否PPP\" IS NULL OR \"是否PPP\" = '' OR \"是否PPP\" = '否'"
+    ))
     vanna.train(documentation="城乡分类常见值: '城乡一体化'、'城区'、'乡镇'、'农村'、'其他'")
     vanna.train(documentation=(
     "【CRITICAL】排序规则：\n"
@@ -298,14 +376,6 @@ def _train_sqlite_vanna(vanna, sqlite_conn):
     "- 问题中包含'最早' → 必须加 ORDER BY [时间字段] ASC\n"
     "- 问题中包含'最新'、'最近' → 必须加 ORDER BY [时间字段] DESC\n"
     "- 使用 LIMIT 时通常需要配合 ORDER BY，否则结果不确定"
-    ))
-    vanna.train(documentation=(
-    "【ABO/PPP 模式查询】\n"
-    "ABO 模式和 PPP 模式都存储在 '是否PPP' 字段中。\n"
-    "✅ 正确：WHERE \"是否PPP\" = 'ABO'\n"
-    "✅ 正确：WHERE \"是否PPP\" = 'PPP'\n"
-    "❌ 错误：WHERE \"项目类型\" = 'ABO'\n"
-    "❌ 错误：WHERE \"项目类型\" = 'PPP'"
     ))
     
 
