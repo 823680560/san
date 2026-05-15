@@ -1,12 +1,16 @@
 import os
+from dotenv import load_dotenv
+
+# 获取项目根目录（configs 的父目录）
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 加载项目根目录下的 .env 文件
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # HuggingFace 镜像端点（国内部署默认使用 hf-mirror.com，设为空字符串则直连 HF 官方）
 _HF_ENDPOINT = os.getenv("HF_ENDPOINT", "https://hf-mirror.com")
 if _HF_ENDPOINT and "HF_ENDPOINT" not in os.environ:
     os.environ["HF_ENDPOINT"] = _HF_ENDPOINT
-
-# 获取项目根目录（configs 的父目录）
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 数据路径（使用绝对路径）,须将文件名换成自己的文件名
 PROJECT_EXCEL = os.path.join(PROJECT_ROOT, "data", "project", "环卫项目数据.xlsx") 
@@ -25,7 +29,7 @@ LAW_JSON = os.path.join(PROJECT_ROOT, "data", "law", "招采政策法规.json")
 
 # DeepSeek API 示例：
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-xxx")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-0c47cccea7ee452d864162a20109bfd4")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
 
 

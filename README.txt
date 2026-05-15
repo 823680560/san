@@ -6,7 +6,7 @@
 一、项目简介
 --------------------------------------------------------------------------------
   本系统是一个面向环卫行业的智能问答平台，基于 RAG（检索增强生成）和 NL2SQL
-  技术，实现对环卫项目数据和法律法规资料的智能检索与分析回答。
+  技术，实现对环卫项目数据和政策法规、招投标资料的智能检索与分析回答。
 
   核心能力：
   - 法律法规检索问答：上传 PDF/JSON 格式法规文件，自动构建向量索引，支持
@@ -26,8 +26,7 @@
   全文检索         BM25s + jieba 分词
   NL2SQL           Vanna + SQLGlot（SQLite 精确查询 + DuckDB 聚合分析）
   数据库           SQLite + FTS5 全文索引
-  LLM              DeepSeek API / Ollama 本地模型（Qwen2.5 / GLM-4 等）
-  Docker 部署      纯 CPU 环境，16核32G 推荐
+  LLM              DeepSeek API / Ollama 本地模型
 
 
 三、目录结构
@@ -83,6 +82,7 @@
 
   1. 下载模型（首次）
      --------------------------------------------------
+     git clone https://github.com/823680560/san.git
      cd san/
      pip install huggingface_hub
      export HF_ENDPOINT=https://hf-mirror.com   # 国内加速
