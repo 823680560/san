@@ -35,6 +35,7 @@ san/
 方式一：用 Docker 临时容器下载（宿主机无需安装 Python）
 
 ```bash
+mkdir -p models   # 先创建，避免 root 权限问题
 docker run --rm \
   -v $(pwd)/models:/models \
   -e HF_ENDPOINT=https://hf-mirror.com \

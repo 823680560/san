@@ -80,16 +80,18 @@
 四、快速开始
 --------------------------------------------------------------------------------
 
-  1. 下载模型（首次）
+  1. 下载模型（首次，建议复制本地模型至服务器指定文件夹）
      --------------------------------------------------
      git clone https://github.com/823680560/san.git
      cd san/
-     pip install huggingface_hub
-     export HF_ENDPOINT=https://hf-mirror.com   # 国内加速
-     hf download BAAI/bge-m3 --local-dir models/bge-m3
-     hf download BAAI/bge-reranker-v2-m3 --local-dir models/bge-reranker-v2-m3
-     # 每个模型约 2.2GB，支持断点续传
-
+     mkdir -p models   # 先创建，避免 root 权限问题
+     docker run --rm \
+       -v $(pwd)/models:/models \
+       -e HF_ENDPOINT=https://hf-mirror.com \
+       python:3.11-slim \
+       sh -c "pip install -q huggingface_hub -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+         hf download BAAI/bge-m3 --local-dir /models/bge-m3 && \
+         hf download BAAI/bge-reranker-v2-m3 --local-dir /models/bge-reranker-v2-m3"
   2. 准备数据
      --------------------------------------------------
      将以下文件放入对应目录：
