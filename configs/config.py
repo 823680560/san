@@ -29,7 +29,7 @@ LAW_JSON = os.path.join(PROJECT_ROOT, "data", "law", "招采政策法规.json")
 
 # DeepSeek API 示例：
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-0c47cccea7ee452d864162a20109bfd4")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-xxx")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
 
 

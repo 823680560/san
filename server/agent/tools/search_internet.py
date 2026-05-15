@@ -1,4 +1,5 @@
 import logging
+import os
 import requests
 from langchain.tools import tool
 from langchain_core.messages import AIMessage
@@ -42,9 +43,13 @@ def compress_content(content: str, query: str):
 
 
 def search_engine_iter(query: str):
+    api_key = os.getenv("ZHIPU_API_KEY", "")
+    if not api_key:
+        return "智谱搜索 API Key 未配置，请设置环境变量 ZHIPU_API_KEY。"
+
     header = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer c427032a692f465ea7a3e4c09e1517bd.5ZWEpwdGSYK8qBGJ'
+        'Authorization': f'Bearer {api_key}'
     }
     
     data = {
