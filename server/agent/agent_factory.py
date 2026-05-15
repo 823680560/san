@@ -44,6 +44,7 @@ def _get_shared_resources():
             base_url=LLM_BASE_URL,
             temperature=0.7,
             request_timeout=120.0,
+            streaming=True,
         )
 
     if _tools is None:
@@ -107,6 +108,35 @@ def run_agent_query(query: str, session_id: str = "default") -> dict:
 
     agent = init_agent(session_id)
     raw = agent.invoke({"input": query})
+
+    thinking_steps = []
+    tool_counts = {}
+
+    for action, obs in raw.get("intermediate_steps", []):
+        tool_name = action.tool
+        tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
+        thinking_steps.append({
+            "step": len(thinking_steps) + 1,
+            "tool": tool_name,
+            "tool_input": str(action.tool_input),
+            "observation_preview": str(obs)[:2000],
+        })
+
+    return {
+        "answer": raw.get("output", "Agent 未能生成回答"),
+        "thinking_steps": thinking_steps,
+        "tool_calls_count": tool_counts,
+    }
+
+
+def run_agent_query_streaming(query: str, session_id: str = "default", callbacks: list = None) -> dict:
+    """执行 Agent 查询（带回调支持，用于流式输出）"""
+    from server.agent.tools.search_internet import clear_search_cache
+    clear_search_cache()
+
+    agent = init_agent(session_id)
+    config = {"callbacks": callbacks} if callbacks else None
+    raw = agent.invoke({"input": query}, config=config)
 
     thinking_steps = []
     tool_counts = {}

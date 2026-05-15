@@ -313,6 +313,25 @@ def query_classifier_prompt(query: str) -> str:
     )
 
 
+def chat_rag_prompt(query: str, context: str, history_str: str = "") -> str:
+    """RAG 对话 prompt（流式和非流式路径共用）"""
+    history_section = ""
+    if history_str:
+        history_section = f"对话历史：\n{history_str}\n\n"
+    return (
+        f"你是一个专业的环卫行业智能问答系统。请根据以下参考资料，回答用户的问题。\n\n"
+        f"要求：\n"
+        f"1. 答案必须基于参考资料中的信息，不要编造\n"
+        f"2. 如果参考资料不足以回答问题，请明确说明\n"
+        f"3. 答案要全面、准确，尽量覆盖问题涉及的所有知识点\n"
+        f'4. 不要输出"根据参考资料"、"根据文本"等前缀，直接给出答案\n\n'
+        f"{history_section}参考资料：\n"
+        f"{context}\n\n"
+        f"用户问题：{query}\n\n"
+        f"答案："
+    )
+
+
 # ============================================================
 # NL2SQL 评测数据集构建
 # ============================================================

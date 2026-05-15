@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from web.api.upload_api import router as upload_router
 from web.api.vectorize_api import router as vectorize_router
 from web.api.chat_api import router as chat_router
+from web.api.chat_streaming import router as chat_stream_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ templates.env.cache = None
 app.include_router(upload_router, prefix="/api")
 app.include_router(vectorize_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(chat_stream_router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)

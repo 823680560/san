@@ -27,6 +27,9 @@ LAW_JSON = os.path.join(PROJECT_ROOT, "data", "law", "招采政策法规.json")
 # LLM_API_KEY = "ollama"
 # LLM_BASE_URL = "http://localhost:11434/v1"
 
+# 流式输出开关
+STREAMING_ENABLED = os.getenv("STREAMING_ENABLED", "true").lower() == "true"
+
 # DeepSeek API 示例：
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-xxx")

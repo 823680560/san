@@ -152,27 +152,9 @@ def _get_llm():
 
 def _generate_answer(query: str, context: str, history_str: str = "") -> str:
     """使用 LLM 基于检索结果生成回答"""
+    from configs.prompt_config import chat_rag_prompt
     llm = _get_llm()
-
-    history_section = ""
-    if history_str:
-        history_section = f"对话历史：\n{history_str}\n\n"
-
-    prompt = f"""你是一个专业的环卫行业智能问答系统。请根据以下参考资料，回答用户的问题。
-
-要求：
-1. 答案必须基于参考资料中的信息，不要编造
-2. 如果参考资料不足以回答问题，请明确说明
-3. 答案要全面、准确，尽量覆盖问题涉及的所有知识点
-4. 不要输出"根据参考资料"、"根据文本"等前缀，直接给出答案
-
-{history_section}参考资料：
-{context}
-
-用户问题：{query}
-
-答案："""
-
+    prompt = chat_rag_prompt(query, context, history_str)
     try:
         result = llm.complete(prompt)
         return result.text.strip()

@@ -128,54 +128,265 @@ async function sendMessage() {
 
     const kbName = document.getElementById('kbSelect').value;
     const topK = parseInt(document.getElementById('topK').value) || 5;
-    const messagesDiv = document.getElementById('chatMessages');
     const sendBtn = document.getElementById('sendBtn');
-    const isAgentMode = kbName === 'auto';
 
-    // 添加用户消息
     addMessage('user', query);
     input.value = '';
     sendBtn.disabled = true;
-    sendBtn.innerHTML = isAgentMode
-        ? '<span class="spinner-border spinner-border-sm"></span> Agent 思考中...'
-        : '<span class="spinner-border spinner-border-sm"></span> 思考中...';
+    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 思考中...';
 
-    // 添加等待消息
+    const supportsStreaming = typeof ReadableStream !== 'undefined';
+    let streamOk = false;
+
+    if (supportsStreaming) {
+        try {
+            await sendMessageStreaming(query, kbName, topK);
+            streamOk = true;
+        } catch (err) {
+            console.warn('流式请求失败，回退到非流式:', err);
+        }
+    }
+
+    if (!streamOk) {
+        await sendMessageNonStreaming(query, kbName, topK);
+    }
+
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = '<i class="bi bi-send"></i> 发送';
+}
+
+function parseSSEBuffer(buffer) {
+    const lines = buffer.split('\n');
+    const events = [];
+    let currentEvent = null;
+    let currentData = '';
+
+    for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i];
+        if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+            currentData = line.slice(6);
+        } else if (line === '' && currentEvent !== null) {
+            events.push({ event: currentEvent, data: currentData });
+            currentEvent = null;
+            currentData = '';
+        }
+    }
+    const remaining = lines[lines.length - 1] || '';
+    return { events, remaining };
+}
+
+function createStreamingMessage() {
+    const messagesDiv = document.getElementById('chatMessages');
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+
+    const div = document.createElement('div');
+    div.id = msgId;
+    div.className = 'd-flex justify-content-start mb-3 message-row';
+    div.innerHTML = `
+        <div class="d-flex" style="max-width: 80%;">
+            <div class="flex-shrink-0">
+                <i class="bi bi-robot fs-4 me-2"></i>
+            </div>
+            <div>
+                <div id="${msgId}-thought"></div>
+                <div class="bg-light rounded-3 px-3 py-2">
+                    <p class="mb-0" id="${msgId}-content" style="white-space: pre-wrap;"></p>
+                </div>
+                <div id="${msgId}-thinking"></div>
+            </div>
+        </div>
+    `;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return msgId;
+}
+
+function updateMessageContent(msgId, text) {
+    const el = document.getElementById(msgId + '-content');
+    if (el) {
+        el.textContent = text;
+    }
+    const messagesDiv = document.getElementById('chatMessages');
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+const _thoughtCache = {};
+const _thoughtOpen = {};  // 记录用户手动展开/折叠状态
+
+function updateThought(msgId, thoughtText) {
+    const el = document.getElementById(msgId + '-thought');
+    if (!el) return;
+    if (!_thoughtCache[msgId]) _thoughtCache[msgId] = [];
+    _thoughtCache[msgId].push(thoughtText);
+    const toggleOn = document.getElementById('showThinking').checked;
+    const hiddenClass = toggleOn ? '' : ' d-none';
+    const wasOpen = _thoughtOpen[msgId];
+    el.innerHTML = `
+        <div class="thinking-context mt-2 mb-2${hiddenClass}">
+            <details${wasOpen ? ' open' : ''} id="${msgId}-details" ontoggle="trackThoughtToggle('${msgId}')">
+                <summary class="text-muted small" style="cursor: pointer;">
+                    <i class="bi bi-lightbulb text-info me-1"></i>思考过程 (${_thoughtCache[msgId].length})
+                </summary>
+                <div class="card bg-info bg-opacity-10 border-start border-info border-2 mt-1" style="font-size: 0.8rem;">
+                    <div class="card-body py-2 px-3">
+                        ${_thoughtCache[msgId].map((t, i) => {
+                            const sep = i > 0 ? '<hr class="my-2">' : '';
+                            return `${sep}<span class="badge bg-info me-1">步骤 ${i + 1}</span><span class="text-muted">${escapeHtml(t)}</span>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </details>
+        </div>`;
+}
+
+function trackThoughtToggle(msgId) {
+    // 下一次渲染时根据当前 details 状态决定
+    const details = document.getElementById(msgId + '-details');
+    if (details) {
+        _thoughtOpen[msgId] = details.open;
+    }
+}
+
+function updateThinkingSteps(msgId, steps) {
+    const thinkEl = document.getElementById(msgId + '-thinking');
+    if (!thinkEl) return;
+    const toggleOn = document.getElementById('showThinking').checked;
+    const hiddenClass = toggleOn ? '' : ' d-none';
+    thinkEl.innerHTML = `
+        <div class="thinking-context mt-2${hiddenClass}">
+            <details open>
+                <summary class="text-muted small" style="cursor: pointer;">检索思考 (Agent 调用记录)</summary>
+                <div class="mt-1">
+                    ${steps.map(s => `
+                        <div class="card bg-light mb-1" style="font-size: 0.75rem;">
+                            <div class="card-body py-1 px-2">
+                                <span class="badge bg-info me-1">步骤 ${s.step}</span>
+                                <span class="badge bg-secondary">${escapeHtml(s.tool)}</span>
+                                <div class="mt-1"><strong>输入:</strong> ${escapeHtml(s.tool_input)}</div>
+                                ${s.observation_preview ? `
+                                <details>
+                                    <summary class="text-muted">查看检索结果</summary>
+                                    <pre class="mt-1 mb-0" style="white-space: pre-wrap;">${escapeHtml(s.observation_preview)}</pre>
+                                </details>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                </div>
+            </details>
+        </div>`;
+}
+
+async function sendMessageStreaming(query, kbName, topK) {
+    const msgId = createStreamingMessage();
+    let thinkingSteps = [];
+    let answerText = '';
+
+    const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            query: query,
+            kb_name: kbName,
+            top_k: topK,
+            session_id: sessionId,
+        }),
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${response.status}`);
+    }
+
+    if (!response.body) {
+        throw new Error('response.body is null, streaming not supported');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const result = parseSSEBuffer(buffer);
+        buffer = result.remaining;
+
+        for (const ev of result.events) {
+            switch (ev.event) {
+                case 'status': {
+                    const data = JSON.parse(ev.data);
+                    updateMessageContent(msgId, data.message);
+                    break;
+                }
+                case 'token': {
+                    const data = JSON.parse(ev.data);
+                    answerText += data.text;
+                    updateMessageContent(msgId, answerText);
+                    break;
+                }
+                case 'thought': {
+                    const data = JSON.parse(ev.data);
+                    updateThought(msgId, data.text);
+                    break;
+                }
+                case 'thinking_step': {
+                    const data = JSON.parse(ev.data);
+                    thinkingSteps.push(data);
+                    updateThinkingSteps(msgId, thinkingSteps);
+                    break;
+                }
+                case 'tool_result': {
+                    const data = JSON.parse(ev.data);
+                    const last = thinkingSteps[thinkingSteps.length - 1];
+                    if (last && last.step === data.step) {
+                        last.observation_preview = data.observation_preview;
+                    }
+                    updateThinkingSteps(msgId, thinkingSteps);
+                    break;
+                }
+                case 'context': {
+                    updateContext(msgId, JSON.parse(ev.data).text);
+                    break;
+                }
+                case 'done':
+                    break;
+                case 'error': {
+                    const data = JSON.parse(ev.data);
+                    updateMessageContent(msgId, '错误: ' + (data.message || '未知错误'));
+                    return;
+                }
+            }
+        }
+    }
+}
+
+async function sendMessageNonStreaming(query, kbName, topK) {
+    const isAgentMode = kbName === 'auto';
     const loadingText = isAgentMode ? 'Agent 正在思考和检索...' : '正在思考...';
     const loadingId = addMessage('assistant', `<div class="spinner-border spinner-border-sm" role="status"></div> ${loadingText}`);
 
-    try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                query: query,
-                kb_name: kbName,
-                top_k: topK,
-                session_id: sessionId,
-            }),
-        });
+    const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            query, kb_name: kbName, top_k: topK, session_id: sessionId,
+        }),
+    });
+    const data = await response.json();
 
-        const data = await response.json();
+    const loadingMsg = document.getElementById(loadingId);
+    if (loadingMsg) loadingMsg.remove();
 
-        // 移除等待消息
-        const loadingMsg = document.getElementById(loadingId);
-        if (loadingMsg) loadingMsg.remove();
-
-        if (data.success) {
-            lastContext = data.context || '';
-            const thinkingSteps = data.thinking_steps || [];
-            addMessage('assistant', data.answer, lastContext, thinkingSteps, data.agent_mode);
-        } else {
-            addMessage('assistant', `错误: ${data.detail || '请求失败'}`);
-        }
-    } catch (err) {
-        const loadingMsg = document.getElementById(loadingId);
-        if (loadingMsg) loadingMsg.remove();
-        addMessage('assistant', `请求失败: ${err.message}`);
-    } finally {
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="bi bi-send"></i> 发送';
+    if (data.success) {
+        lastContext = data.context || '';
+        addMessage('assistant', data.answer, lastContext, data.thinking_steps || [], data.agent_mode);
+    } else {
+        addMessage('assistant', `错误: ${data.detail || '请求失败'}`);
     }
 }
 
@@ -250,6 +461,24 @@ function addMessage(role, content, context, thinkingSteps, agentMode) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     return msgId;
+}
+
+function updateContext(msgId, context) {
+    const thinkEl = document.getElementById(msgId + '-thinking');
+    if (!thinkEl) return;
+    const toggleOn = document.getElementById('showThinking').checked;
+    const hiddenClass = toggleOn ? '' : ' d-none';
+    thinkEl.innerHTML = `
+        <div class="thinking-context mt-2${hiddenClass}">
+            <details open>
+                <summary class="text-muted small" style="cursor: pointer;">检索思考</summary>
+                <div class="card bg-light mt-1">
+                    <div class="card-body py-2" style="font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap; margin: 0;">${escapeHtml(context)}</pre>
+                    </div>
+                </div>
+            </details>
+        </div>`;
 }
 
 function escapeHtml(text) {

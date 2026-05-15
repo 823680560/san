@@ -46,6 +46,7 @@ class SimpleLLM:
             temperature=self.temperature,
             max_tokens=4096,
             request_timeout=120.0,
+            streaming=True,
         )
 
         logger.info(f"SimpleLLM 初始化完成，模型: {self.model}")
@@ -66,6 +67,16 @@ class SimpleLLM:
             return CompletionResponse(text=text)
         except Exception as e:
             logger.error(f"LLM 调用失败: {e}")
+            raise
+
+    def stream(self, prompt: str):
+        """流式返回 LLM 响应 token"""
+        try:
+            for chunk in self.client.stream(prompt):
+                if chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            logger.error(f"LLM 流式调用失败: {e}")
             raise
 
 
